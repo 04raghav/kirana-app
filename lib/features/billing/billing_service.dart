@@ -84,6 +84,16 @@ class BillingService {
           purchasePriceSnapshot = src.purchasePrice;
           wholesalerIdForLedger = src.wholesalerId;
 
+          final legacyInventoryId =
+              src.originalInventoryId ??
+              await _createLegacyInventoryMirror(
+                itemId: req.itemId,
+                wholesalerId: src.wholesalerId,
+                purchasePrice: src.purchasePrice,
+                bardana: src.bardana,
+                quantity: req.quantity,
+              );
+
           // If source maintains quantity and is not N/A, ensure availability and deduct
           if (!src.isQuantityNa) {
             final available = src.quantity ?? 0.0;
@@ -109,7 +119,7 @@ class BillingService {
               .insert(
                 BillItemSourcesCompanion.insert(
                   billItemId: billItemId,
-                  inventoryId: Value.absent(),
+                  inventoryId: Value(legacyInventoryId),
                   purchaseSourceId: Value(purchaseSourceId),
                   quantityAllocated: req.quantity,
                   purchasePriceAtTime: purchasePriceSnapshot,
@@ -254,5 +264,25 @@ class BillingService {
 
       return billId;
     });
+  }
+
+  Future<int> _createLegacyInventoryMirror({
+    required int itemId,
+    required int wholesalerId,
+    required double purchasePrice,
+    required double bardana,
+    required double quantity,
+  }) {
+    return _db
+        .into(_db.wholesalerInventory)
+        .insert(
+          WholesalerInventoryCompanion.insert(
+            itemId: itemId,
+            wholesalerId: wholesalerId,
+            quantityToSell: quantity,
+            purchasePrice: purchasePrice,
+            bardana: Value(bardana),
+          ),
+        );
   }
 }

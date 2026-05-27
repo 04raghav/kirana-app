@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
             // Insert into new table, keeping original inventory id for mapping
             await customStatement(
               'INSERT INTO item_purchase_sources (item_id, wholesaler_id, purchase_price, gst_rate, bardana, quantity, is_quantity_na, original_inventory_id, created_at, updated_at) VALUES ('
-              '${itemId}, ${wholesalerId}, ${purchasePrice}, 0.0, ${bardana}, ${quantityValue}, ${isNa}, ${origId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+              '$itemId, $wholesalerId, $purchasePrice, 0.0, $bardana, $quantityValue, $isNa, $origId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
             );
           }
 
@@ -99,6 +99,9 @@ class AppDatabase extends _$AppDatabase {
       await delete(retailers).go();
       await delete(wholesalers).go();
       await delete(items).go();
+
+      // Reset autoincrement counters so the next generated bill starts at #1 again.
+      await customStatement('DELETE FROM sqlite_sequence');
     });
   }
 }

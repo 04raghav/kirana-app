@@ -72,6 +72,8 @@ class RetailersScreen extends ConsumerWidget {
             decoration: const InputDecoration(labelText: 'Name'),
           ),
           TextField(
+            maxLength: 10,
+            keyboardType: TextInputType.number,
             controller: phoneController,
             decoration: const InputDecoration(labelText: 'Phone'),
           ),

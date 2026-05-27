@@ -12,6 +12,12 @@ class LedgerService {
 
   LedgerService(this._db);
 
+  Future<Ledger?> getLedgerById(int ledgerId) async {
+    return (_db.select(
+      _db.ledgers,
+    )..where((t) => t.id.equals(ledgerId))).getSingleOrNull();
+  }
+
   Future<List<Ledger>> getLedgersByTypeAndDate(String type) async {
     return (_db.select(
       _db.ledgers,
@@ -36,36 +42,55 @@ class LedgerService {
   }
 
   Future<List<Map<String, dynamic>>> getLedgerBreakup(int ledgerId) async {
-    final ledger = await (_db.select(
-      _db.ledgers,
-    )..where((t) => t.id.equals(ledgerId))).getSingleOrNull();
+    final ledger = await getLedgerById(ledgerId);
     if (ledger == null) return [];
 
+    final start = DateTime(
+      ledger.date.year,
+      ledger.date.month,
+      ledger.date.day,
+    );
+    final end = start.add(const Duration(days: 1));
+
     if (ledger.ledgerType == 'purchase' && ledger.partyType == 'wholesaler') {
-      // Breakdown: items purchased from this wholesaler (via purchase sources)
       final rows = await _db
           .customSelect(
             '''
-        SELECT bis.id as bill_item_source_id,
-               ips.id as purchase_source_id,
-               w.id as wholesaler_id,
-               w.name as wholesaler_name,
+        SELECT rb.id as bill_id,
+               rb.date as bill_date,
+               rb.total_amount as bill_total_amount,
+               rb.tax_amount as bill_tax_amount,
+               rb.bardana_amount as bill_bardana_amount,
+               rbi.id as bill_item_id,
                i.id as item_id,
                i.name as item_name,
                rbi.quantity as quantity,
+               rbi.selling_price as selling_price,
+               rbi.gst_rate as gst_rate,
+               rbi.bardana as bardana,
+               bis.id as bill_item_source_id,
+               bis.purchase_source_id as purchase_source_id,
+               bis.inventory_id as inventory_id,
                bis.purchase_price_at_time as purchase_price_at_time,
-               rb.id as bill_id,
-               rb.date as bill_date
-        FROM bill_item_sources bis
-        JOIN item_purchase_sources ips ON ips.id = bis.purchase_source_id
-        JOIN wholesalers w ON w.id = ips.wholesaler_id
-        JOIN retailer_bill_items rbi ON rbi.id = bis.bill_item_id
+               COALESCE(ips.wholesaler_id, wi.wholesaler_id) as wholesaler_id,
+               COALESCE(w.name, 'Unknown wholesaler') as wholesaler_name
+        FROM retailer_bills rb
+        JOIN retailer_bill_items rbi ON rbi.bill_id = rb.id
         JOIN items i ON i.id = rbi.item_id
-        JOIN retailer_bills rb ON rb.id = rbi.bill_id
-        WHERE ips.wholesaler_id = :wholesalerId
-        ORDER BY rb.date DESC
+        LEFT JOIN bill_item_sources bis ON bis.bill_item_id = rbi.id
+        LEFT JOIN item_purchase_sources ips ON ips.id = bis.purchase_source_id
+        LEFT JOIN wholesaler_inventory wi ON wi.id = bis.inventory_id
+        LEFT JOIN wholesalers w ON w.id = COALESCE(ips.wholesaler_id, wi.wholesaler_id)
+        WHERE rb.date >= :startDate
+          AND rb.date < :endDate
+          AND COALESCE(ips.wholesaler_id, wi.wholesaler_id) = :partyId
+        ORDER BY rb.date DESC, rb.id DESC, rbi.id ASC
       ''',
-            variables: [Variable<int>(ledger.partyId)],
+            variables: [
+              Variable<DateTime>(start),
+              Variable<DateTime>(end),
+              Variable<int>(ledger.partyId),
+            ],
           )
           .get();
 
@@ -73,30 +98,44 @@ class LedgerService {
     }
 
     if (ledger.ledgerType == 'sale' && ledger.partyType == 'retailer') {
-      // Breakdown: items sold to this retailer
       final rows = await _db
           .customSelect(
             '''
-        SELECT rbi.id as bill_item_id,
-               rb.id as bill_id,
+        SELECT rb.id as bill_id,
                rb.date as bill_date,
-               r.id as retailer_id,
-               r.name as retailer_name,
+               rb.total_amount as bill_total_amount,
+               rb.tax_amount as bill_tax_amount,
+               rb.bardana_amount as bill_bardana_amount,
+               rbi.id as bill_item_id,
                i.id as item_id,
                i.name as item_name,
                rbi.quantity as quantity,
                rbi.selling_price as selling_price,
+               rbi.gst_rate as gst_rate,
+               rbi.bardana as bardana,
+               bis.id as bill_item_source_id,
+               bis.purchase_source_id as purchase_source_id,
+               bis.inventory_id as inventory_id,
                bis.purchase_price_at_time as purchase_price_at_time,
-               bis.purchase_source_id as purchase_source_id
-        FROM retailer_bill_items rbi
-        JOIN retailer_bills rb ON rb.id = rbi.bill_id
-        JOIN retailers r ON r.id = rb.retailer_id
+               COALESCE(ips.wholesaler_id, wi.wholesaler_id) as wholesaler_id,
+               COALESCE(w.name, 'Unknown wholesaler') as wholesaler_name
+        FROM retailer_bills rb
+        JOIN retailer_bill_items rbi ON rbi.bill_id = rb.id
         JOIN items i ON i.id = rbi.item_id
         LEFT JOIN bill_item_sources bis ON bis.bill_item_id = rbi.id
-        WHERE rb.retailer_id = :retailerId
-        ORDER BY rb.date DESC
+        LEFT JOIN item_purchase_sources ips ON ips.id = bis.purchase_source_id
+        LEFT JOIN wholesaler_inventory wi ON wi.id = bis.inventory_id
+        LEFT JOIN wholesalers w ON w.id = COALESCE(ips.wholesaler_id, wi.wholesaler_id)
+        WHERE rb.date >= :startDate
+          AND rb.date < :endDate
+          AND rb.retailer_id = :partyId
+        ORDER BY rb.date DESC, rb.id DESC, rbi.id ASC
       ''',
-            variables: [Variable<int>(ledger.partyId)],
+            variables: [
+              Variable<DateTime>(start),
+              Variable<DateTime>(end),
+              Variable<int>(ledger.partyId),
+            ],
           )
           .get();
 
@@ -105,6 +144,15 @@ class LedgerService {
 
     // Default: return empty
     return [];
+  }
+
+  Future<List<Payment>> getPaymentsForLedger(int ledgerId) async {
+    return (_db.select(_db.payments)
+          ..where((t) => t.ledgerId.equals(ledgerId))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
+        .get();
   }
 
   /// Return migration verification counts to help confirm conversion.
@@ -162,32 +210,43 @@ class LedgerService {
     required int ledgerId,
     required double amount,
     required String paymentMode,
+    DateTime? paymentDate,
+    String? note,
     bool isFullPayment = false,
   }) async {
     await _db.transaction(() async {
+      final ledger = await (_db.select(
+        _db.ledgers,
+      )..where((t) => t.id.equals(ledgerId))).getSingle();
+
+      final normalizedAmount = isFullPayment ? ledger.remainingAmount : amount;
+      final cappedAmount = normalizedAmount.clamp(0.0, ledger.remainingAmount);
+      final newAmountPaid = (ledger.amountPaid + cappedAmount).clamp(
+        0.0,
+        ledger.totalAmount,
+      );
+      final newRemaining = ledger.totalAmount - newAmountPaid;
+
       await _db
           .into(_db.payments)
           .insert(
             PaymentsCompanion(
               ledgerId: Value(ledgerId),
-              amount: Value(amount),
+              amount: Value(cappedAmount),
               paymentMode: Value(paymentMode),
-              isFullPayment: Value(isFullPayment),
+              date: Value(paymentDate ?? DateTime.now()),
+              note: Value(note),
+              isFullPayment: Value(isFullPayment || newRemaining <= 0),
             ),
           );
 
-      // update ledger totals
-      final ledger = await (_db.select(
-        _db.ledgers,
-      )..where((t) => t.id.equals(ledgerId))).getSingle();
-      final newAmountPaid = ledger.amountPaid + amount;
-      final newRemaining = ledger.totalAmount - newAmountPaid;
       await (_db.update(
         _db.ledgers,
       )..where((t) => t.id.equals(ledgerId))).write(
         LedgersCompanion(
           amountPaid: Value(newAmountPaid),
           remainingAmount: Value(newRemaining < 0 ? 0.0 : newRemaining),
+          paymentMode: Value(paymentMode),
           isFullyPaid: Value(isFullPayment || newRemaining <= 0),
         ),
       );

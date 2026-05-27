@@ -88,7 +88,9 @@ class WholesalersScreen extends ConsumerWidget {
             decoration: const InputDecoration(labelText: 'Name'),
           ),
           TextField(
+            maxLength: 10,
             controller: phoneController,
+            keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'Phone'),
           ),
           TextField(

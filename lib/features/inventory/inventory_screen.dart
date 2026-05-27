@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/providers.dart';
-// removed unused imports
-import 'inventory_service.dart';
-import 'items_service.dart';
 
-final availableStockProvider = FutureProvider<List<Map<String, dynamic>>>((
-  ref,
-) {
-  final service = ref.watch(inventoryServiceProvider);
-  return service.getAvailableStock();
-});
+import '../../core/providers.dart';
+import '../../database/database.dart';
+import '../../widgets/common_widgets.dart';
+import 'items_service.dart';
+import 'purchase_sources_service.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -19,95 +14,46 @@ class InventoryScreen extends ConsumerStatefulWidget {
   ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends ConsumerState<InventoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inventory & Items'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Available Stock'),
-            Tab(text: 'Item Catalog'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildStockTab(), _buildItemsTab()],
-      ),
-    );
-  }
-
-  Widget _buildStockTab() {
-    final stockAsync = ref.watch(availableStockProvider);
-
-    return Scaffold(
-      body: stockAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
-        data: (stockList) {
-          if (stockList.isEmpty)
-            return const Center(child: Text("No stock available."));
-          return ListView.builder(
-            itemCount: stockList.length,
-            itemBuilder: (context, index) {
-              final stock = stockList[index];
-              final item = stock['item'];
-              final qty = stock['totalQuantity'];
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.inventory_2)),
-                title: Text(item.name),
-                subtitle: Text('Available Quantity: $qty'),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddStockDialog(context, ref),
-        icon: const Icon(Icons.add_shopping_cart),
-        label: const Text('Receive Stock'),
-      ),
-    );
-  }
-
-  Widget _buildItemsTab() {
     final itemsAsync = ref.watch(itemsListProvider);
 
     return Scaffold(
+      appBar: CommonAppBar(
+        title: 'Inventory',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () => ref.invalidate(itemsListProvider),
+          ),
+        ],
+      ),
       body: itemsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (items) {
-          if (items.isEmpty)
-            return const Center(child: Text("No items in catalog."));
-          return ListView.builder(
+          if (items.isEmpty) {
+            return const Center(
+              child: Text('No items found. Add an item first.'),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
             itemCount: items.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final item = items[index];
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.category)),
-                title: Text(item.name),
-                subtitle: Text(
-                  'Type: ${item.type ?? "N/A"} | GST: ${item.defaultGst}%',
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () async {
-                    await ref.read(itemsServiceProvider).deleteItem(item.id);
-                    ref.invalidate(itemsListProvider);
-                  },
+              return Card(
+                child: ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.inventory_2)),
+                  title: Text(item.name),
+                  subtitle: Text(
+                    'Tap to manage purchase sources | GST ${item.defaultGst}% | Bardana ${item.defaultBardana}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showItemSourcesDialog(context, item),
                 ),
               );
             },
@@ -115,23 +61,24 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddItemDialog(context, ref),
+        onPressed: () => _showAddItemDialog(context),
         icon: const Icon(Icons.add),
-        label: const Text('Add Catalog Item'),
+        label: const Text('Add Item'),
       ),
     );
   }
 
-  void _showAddItemDialog(BuildContext context, WidgetRef ref) {
+  void _showAddItemDialog(BuildContext context) {
     final nameController = TextEditingController();
     final typeController = TextEditingController();
     final gstController = TextEditingController();
+    final bardanaController = TextEditingController();
 
-    showDialog(
+    showCommonDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Catalog Item'),
-        content: Column(
+      title: 'Add Item',
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
@@ -149,99 +96,279 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
               decoration: const InputDecoration(labelText: 'Default GST %'),
               keyboardType: TextInputType.number,
             ),
+            TextField(
+              controller: bardanaController,
+              decoration: const InputDecoration(labelText: 'Default Bardana'),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                await ref
-                    .read(itemsServiceProvider)
-                    .addItem(
-                      nameController.text,
-                      typeController.text.isEmpty ? null : typeController.text,
-                      0.0, // Default Bardana
-                      double.tryParse(gstController.text) ?? 0.0,
-                    );
-                ref.invalidate(itemsListProvider);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (nameController.text.trim().isEmpty) return;
+
+            await ref
+                .read(itemsServiceProvider)
+                .addItem(
+                  nameController.text.trim(),
+                  typeController.text.trim().isEmpty
+                      ? null
+                      : typeController.text.trim(),
+                  double.tryParse(bardanaController.text) ?? 0.0,
+                  double.tryParse(gstController.text) ?? 0.0,
+                );
+
+            ref.invalidate(itemsListProvider);
+            if (context.mounted) Navigator.pop(context);
+          },
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 
-  void _showAddStockDialog(BuildContext context, WidgetRef ref) {
-    int? selectedItemId;
-    int? selectedWholesalerId;
-    final qtyController = TextEditingController();
-    final priceController = TextEditingController();
-    final bardanaController = TextEditingController();
-
+  Future<void> _showItemSourcesDialog(BuildContext context, Item item) async {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Expanded(child: Text('${item.name} - Purchase Sources')),
+              IconButton(
+                tooltip: 'Add purchase source',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: () async {
+                  final wholesalers = await ref.read(
+                    wholesalersListProvider.future,
+                  );
+                  if (dialogContext.mounted) {
+                    await _showSourceEditorDialog(
+                      dialogContext,
+                      item,
+                      wholesalers,
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 680,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final sourcesAsync = ref.watch(
+                  purchaseSourcesForItemProvider(item.id),
+                );
+                final wholesalersAsync = ref.watch(wholesalersListProvider);
+
+                return wholesalersAsync.when(
+                  loading: () => const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, stack) => Text('Error: $err'),
+                  data: (wholesalers) {
+                    return sourcesAsync.when(
+                      loading: () => const SizedBox(
+                        height: 220,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (err, stack) => Text('Error: $err'),
+                      data: (sources) {
+                        if (sources.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              'No purchase sources added for this item.',
+                            ),
+                          );
+                        }
+
+                        return SizedBox(
+                          height: 320,
+                          child: ListView.separated(
+                            itemCount: sources.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 16),
+                            itemBuilder: (context, index) {
+                              final source = sources[index];
+                              final wholesalerName = _wholesalerName(
+                                source.wholesalerId,
+                                wholesalers,
+                              );
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(wholesalerName),
+                                subtitle: Text(
+                                  'Price ₹${source.purchasePrice} | GST ${source.gstRate}% | Bardana ${source.bardana} | Qty ${source.isQuantityNa ? 'N/A' : (source.quantity ?? 0)}',
+                                ),
+                                trailing: Wrap(
+                                  spacing: 4,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Edit source',
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () async {
+                                        await _showSourceEditorDialog(
+                                          dialogContext,
+                                          item,
+                                          wholesalers,
+                                          existingSource: source,
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Delete source',
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () async {
+                                        final confirmed = await showDialog<bool>(
+                                          context: dialogContext,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Delete source?'),
+                                            content: Text(
+                                              'Remove the purchase source for $wholesalerName?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, true),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirmed == true) {
+                                          await ref
+                                              .read(
+                                                purchaseSourcesServiceProvider,
+                                              )
+                                              .deleteSource(source.id);
+                                          ref.invalidate(
+                                            purchaseSourcesForItemProvider(
+                                              item.id,
+                                            ),
+                                          );
+                                          if (dialogContext.mounted) {
+                                            showCommonSnackbar(
+                                              dialogContext,
+                                              'Purchase source deleted',
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showSourceEditorDialog(
+    BuildContext context,
+    Item item,
+    List<Wholesaler> wholesalers, {
+    ItemPurchaseSource? existingSource,
+  }) async {
+    final priceController = TextEditingController(
+      text: existingSource == null
+          ? ''
+          : existingSource.purchasePrice.toString(),
+    );
+    final gstController = TextEditingController(
+      text: existingSource == null ? '0' : existingSource.gstRate.toString(),
+    );
+    final bardanaController = TextEditingController(
+      text: existingSource == null ? '0' : existingSource.bardana.toString(),
+    );
+    final quantityController = TextEditingController(
+      text: existingSource?.quantity?.toString() ?? '',
+    );
+
+    int? selectedWholesalerId = existingSource?.wholesalerId;
+    bool isQuantityNa = existingSource?.isQuantityNa ?? false;
+
+    if (selectedWholesalerId == null && wholesalers.length == 1) {
+      selectedWholesalerId = wholesalers.first.id;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setState) {
-            final itemsAsync = ref.watch(itemsListProvider);
-            final wholesalersAsync = ref.watch(wholesalersListProvider);
-
             return AlertDialog(
-              title: const Text('Receive Stock from Wholesaler'),
+              title: Text(
+                existingSource == null
+                    ? 'Add Purchase Source'
+                    : 'Edit Purchase Source',
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Item Dropdown
-                    itemsAsync.when(
-                      loading: () => const CircularProgressIndicator(),
-                      error: (err, _) => Text('Error: $err'),
-                      data: (items) => DropdownButtonFormField<int>(
-                        initialValue: selectedItemId,
-                        hint: const Text('Select Item'),
-                        items: items
-                            .map(
-                              (i) => DropdownMenuItem(
-                                value: i.id,
-                                child: Text(i.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() => selectedItemId = v),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Wholesaler Dropdown
-                    wholesalersAsync.when(
-                      loading: () => const CircularProgressIndicator(),
-                      error: (err, _) => Text('Error: $err'),
-                      data: (ws) => DropdownButtonFormField<int>(
+                    if (existingSource == null)
+                      DropdownButtonFormField<int>(
                         initialValue: selectedWholesalerId,
-                        hint: const Text('Select Wholesaler'),
-                        items: ws
+                        decoration: const InputDecoration(
+                          labelText: 'Wholesaler',
+                        ),
+                        items: wholesalers
                             .map(
-                              (w) => DropdownMenuItem(
-                                value: w.id,
-                                child: Text(w.name),
+                              (wholesaler) => DropdownMenuItem(
+                                value: wholesaler.id,
+                                child: Text(wholesaler.name),
                               ),
                             )
                             .toList(),
-                        onChanged: (v) =>
-                            setState(() => selectedWholesalerId = v),
+                        onChanged: (value) => setState(() {
+                          selectedWholesalerId = value;
+                        }),
+                      )
+                    else
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Wholesaler'),
+                        subtitle: Text(
+                          _wholesalerName(
+                            existingSource.wholesalerId,
+                            wholesalers,
+                          ),
+                        ),
                       ),
-                    ),
-                    TextField(
-                      controller: qtyController,
-                      decoration: const InputDecoration(labelText: 'Quantity'),
-                      keyboardType: TextInputType.number,
-                    ),
                     TextField(
                       controller: priceController,
                       decoration: const InputDecoration(
@@ -250,8 +377,30 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                       keyboardType: TextInputType.number,
                     ),
                     TextField(
+                      controller: gstController,
+                      decoration: const InputDecoration(labelText: 'GST %'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    TextField(
                       controller: bardanaController,
                       decoration: const InputDecoration(labelText: 'Bardana'),
+                      keyboardType: TextInputType.number,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Qty N/A'),
+                      value: isQuantityNa,
+                      onChanged: (value) => setState(() {
+                        isQuantityNa = value;
+                        if (value) {
+                          quantityController.clear();
+                        }
+                      }),
+                    ),
+                    TextField(
+                      controller: quantityController,
+                      enabled: !isQuantityNa,
+                      decoration: const InputDecoration(labelText: 'Quantity'),
                       keyboardType: TextInputType.number,
                     ),
                   ],
@@ -259,31 +408,60 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (selectedItemId != null &&
-                        selectedWholesalerId != null) {
-                      await ref
-                          .read(inventoryServiceProvider)
-                          .addInwardInventory(
-                            itemId: selectedItemId!,
-                            wholesalerId: selectedWholesalerId!,
-                            quantity:
-                                double.tryParse(qtyController.text) ?? 0.0,
-                            purchasePrice:
-                                double.tryParse(priceController.text) ?? 0.0,
-                            bardana:
-                                double.tryParse(bardanaController.text) ?? 0.0,
-                          );
-                      ref.invalidate(availableStockProvider);
-                      // Give it half a second then refresh itemsList as well just in case.
-                      if (context.mounted) Navigator.pop(context);
+                    final price = double.tryParse(priceController.text);
+                    if (price == null || price < 0) return;
+                    final gst = double.tryParse(gstController.text) ?? 0.0;
+                    final bardana =
+                        double.tryParse(bardanaController.text) ?? 0.0;
+                    final quantity = isQuantityNa
+                        ? null
+                        : double.tryParse(quantityController.text);
+
+                    if (!isQuantityNa && quantity == null) return;
+                    if (existingSource == null &&
+                        selectedWholesalerId == null) {
+                      return;
+                    }
+
+                    final service = ref.read(purchaseSourcesServiceProvider);
+                    if (existingSource == null) {
+                      await service.addSource(
+                        itemId: item.id,
+                        wholesalerId: selectedWholesalerId!,
+                        purchasePrice: price,
+                        gstRate: gst,
+                        bardana: bardana,
+                        quantity: quantity,
+                        isQuantityNa: isQuantityNa,
+                      );
+                    } else {
+                      await service.updateSource(
+                        id: existingSource.id,
+                        purchasePrice: price,
+                        gstRate: gst,
+                        bardana: bardana,
+                        quantity: quantity,
+                        isQuantityNa: isQuantityNa,
+                      );
+                    }
+
+                    ref.invalidate(purchaseSourcesForItemProvider(item.id));
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                      showCommonSnackbar(
+                        context,
+                        existingSource == null
+                            ? 'Purchase source added'
+                            : 'Purchase source updated',
+                      );
                     }
                   },
-                  child: const Text('Receive Stock'),
+                  child: Text(existingSource == null ? 'Add' : 'Save'),
                 ),
               ],
             );
@@ -291,5 +469,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         );
       },
     );
+  }
+
+  String _wholesalerName(int wholesalerId, List<Wholesaler> wholesalers) {
+    for (final wholesaler in wholesalers) {
+      if (wholesaler.id == wholesalerId) {
+        return wholesaler.name;
+      }
+    }
+    return 'Wholesaler $wholesalerId';
   }
 }

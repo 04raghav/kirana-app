@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kirana_app/features/ledger/purchases_screen.dart';
+import 'package:kirana_app/features/ledger/sales_screen.dart';
 
 import '../../core/providers.dart';
 import '../../widgets/common_widgets.dart';
@@ -137,6 +139,26 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
             ),
+            _DashboardCard(
+              title: "Purchases",
+              icon: Icons.blinds_closed_outlined,
+              color: Colors.indigo,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PurchasesScreen()),
+                );
+              },
+            ),
+            _DashboardCard(
+              title: "Sales",
+              icon: Icons.blinds_closed_outlined,
+              color: Colors.indigo,
+              onTap: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const SalesScreen()));
+              },
+            ),
           ],
         ),
       ),
@@ -169,7 +191,7 @@ class _DashboardCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.7), color],
+              colors: [color.withValues(alpha: 0.7), color],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

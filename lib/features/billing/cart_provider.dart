@@ -58,6 +58,9 @@ class CartStateNotifier extends StateNotifier<List<CartItemModel>> {
       final currentItem = updatedCart[existingIndex];
       updatedCart[existingIndex] = currentItem.copyWith(
         quantity: currentItem.quantity + quantity,
+        sellingPrice: sellingPrice,
+        gstRate: gstRate,
+        bardana: bardana,
         purchaseSourceId: purchaseSourceId ?? currentItem.purchaseSourceId,
       );
       state = updatedCart;

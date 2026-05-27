@@ -13,9 +13,10 @@ class PurchaseSourcesService {
   PurchaseSourcesService(this._db);
 
   Future<List<ItemPurchaseSource>> getSourcesForItem(int itemId) {
-    return (_db.select(
-      _db.itemPurchaseSources,
-    )..where((t) => t.itemId.equals(itemId))).get();
+    return (_db.select(_db.itemPurchaseSources)
+          ..where((t) => t.itemId.equals(itemId))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
   }
 
   Future<int> addSource({
@@ -42,16 +43,24 @@ class PurchaseSourcesService {
         );
   }
 
-  Future<void> updateSource(ItemPurchaseSource src) async {
+  Future<void> updateSource({
+    required int id,
+    required double purchasePrice,
+    required double gstRate,
+    required double bardana,
+    required double? quantity,
+    required bool isQuantityNa,
+  }) async {
     await (_db.update(
       _db.itemPurchaseSources,
-    )..where((t) => t.id.equals(src.id))).write(
+    )..where((t) => t.id.equals(id))).write(
       ItemPurchaseSourcesCompanion(
-        purchasePrice: Value(src.purchasePrice),
-        gstRate: Value(src.gstRate),
-        bardana: Value(src.bardana),
-        quantity: Value(src.quantity),
-        isQuantityNa: Value(src.isQuantityNa),
+        purchasePrice: Value(purchasePrice),
+        gstRate: Value(gstRate),
+        bardana: Value(bardana),
+        quantity: Value(quantity),
+        isQuantityNa: Value(isQuantityNa),
+        updatedAt: Value(DateTime.now()),
       ),
     );
   }

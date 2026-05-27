@@ -219,15 +219,38 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
 
   Future<void> _showAddItemDialog(BuildContext context, Item item) async {
     final qtyController = TextEditingController(text: "1");
-    final priceController = TextEditingController();
+    final sellingPriceController = TextEditingController();
+    final purchasePriceController = TextEditingController();
+    final gstController = TextEditingController(
+      text: item.defaultGst.toString(),
+    );
+    final bardanaController = TextEditingController(
+      text: item.defaultBardana.toString(),
+    );
 
     int? selectedSourceId;
+
+    void applySource(ItemPurchaseSource? source) {
+      selectedSourceId = source?.id;
+      purchasePriceController.text = source == null
+          ? ''
+          : source.purchasePrice.toStringAsFixed(2);
+      gstController.text = (source?.gstRate ?? item.defaultGst).toString();
+      bardanaController.text = (source?.bardana ?? item.defaultBardana)
+          .toString();
+    }
 
     // fetch purchase sources and wholesalers for the item (may be empty)
     final sources = await ref.read(
       purchaseSourcesForItemProvider(item.id).future,
     );
     final wholesalers = await ref.read(wholesalersListProvider.future);
+
+    if (!context.mounted) return;
+
+    if (sources.isNotEmpty) {
+      applySource(sources.length == 1 ? sources.first : null);
+    }
 
     showCommonDialog(
       context: context,
@@ -237,36 +260,77 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (sources.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<int?>(selectedSourceId),
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: sources.isEmpty
+                        ? 'Purchase Source / Wholesaler'
+                        : 'Purchase Source / Wholesaler',
+                  ),
+                  hint: const Text('Select Purchase Source'),
+                  initialValue: sources.isEmpty ? null : selectedSourceId,
+                  items: sources.map((s) {
+                    final qtyLabel = s.isQuantityNa
+                        ? 'Qty N/A'
+                        : 'Qty ${s.quantity ?? 0}';
+                    final wholesalerName = wholesalers.firstWhere(
+                      (w) => w.id == s.wholesalerId,
+                      orElse: () => Wholesaler(
+                        id: s.wholesalerId,
+                        name: 'Wholesaler ${s.wholesalerId}',
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      ),
+                    );
+                    return DropdownMenuItem(
+                      value: s.id,
+                      child: Text(
+                        '${wholesalerName.name} | ₹${s.purchasePrice} | GST ${s.gstRate}% | $qtyLabel',
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: sources.isEmpty
+                      ? null
+                      : (v) => setState(() {
+                          if (v == null) return;
+                          final source = sources.firstWhere((s) => s.id == v);
+                          applySource(source);
+                          purchasePriceController.text = source.purchasePrice
+                              .toStringAsFixed(2);
+                          gstController.text = source.gstRate.toString();
+                          bardanaController.text = source.bardana.toString();
+                        }),
+                ),
+              ),
+              if (sources.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
-                  child: DropdownButton<int>(
-                    isExpanded: true,
-                    hint: const Text('Select Purchase Source (Wholesaler)'),
-                    value: selectedSourceId,
-                    items: sources.map((s) {
-                      final qtyLabel = s.isQuantityNa
-                          ? 'Qty N/A'
-                          : 'Qty ${s.quantity ?? 0}';
-                      final wholesalerName = wholesalers.firstWhere(
-                        (w) => w.id == s.wholesalerId,
-                        orElse: () => Wholesaler(
-                          id: s.wholesalerId,
-                          name: 'Wholesaler ${s.wholesalerId}',
-                          createdAt: DateTime.now(),
-                          updatedAt: DateTime.now(),
-                        ),
-                      );
-                      return DropdownMenuItem(
-                        value: s.id,
-                        child: Text(
-                          '${wholesalerName.name} | ₹${s.purchasePrice} | GST ${s.gstRate}% | $qtyLabel',
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() => selectedSourceId = v),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'No purchase sources exist for this item yet.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
                 ),
+              TextField(
+                controller: purchasePriceController,
+                decoration: const InputDecoration(labelText: 'Purchase Price'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: gstController,
+                decoration: const InputDecoration(labelText: 'GST %'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: bardanaController,
+                decoration: const InputDecoration(labelText: 'Bardana'),
+                keyboardType: TextInputType.number,
+              ),
               // show selected source meta
               if (selectedSourceId != null)
                 Padding(
@@ -303,7 +367,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                 keyboardType: TextInputType.number,
               ),
               TextField(
-                controller: priceController,
+                controller: sellingPriceController,
                 decoration: const InputDecoration(
                   labelText: 'Selling Price/Unit',
                 ),
@@ -321,7 +385,11 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         ElevatedButton(
           onPressed: () {
             final qty = double.tryParse(qtyController.text) ?? 1.0;
-            final price = double.tryParse(priceController.text) ?? 0.0;
+            final price = double.tryParse(sellingPriceController.text) ?? 0.0;
+            final gstRate =
+                double.tryParse(gstController.text) ?? item.defaultGst;
+            final bardana =
+                double.tryParse(bardanaController.text) ?? item.defaultBardana;
             if (price > 0) {
               ref
                   .read(cartProvider.notifier)
@@ -329,6 +397,10 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     item,
                     qty,
                     price,
+                    // preserve the current purchase terms in the cart row
+                    // so the selected source can be traced in billing.
+                    gstRate: gstRate,
+                    bardana: bardana,
                     purchaseSourceId: selectedSourceId,
                   );
               Navigator.pop(context);

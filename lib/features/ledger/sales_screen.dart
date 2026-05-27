@@ -23,7 +23,9 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final ledgers = snapshot.data ?? [];
-          if (ledgers.isEmpty) return const Center(child: Text('No sales yet'));
+          if (ledgers.isEmpty) {
+            return const Center(child: Text('No sales yet'));
+          }
 
           final Map<String, List<Ledger>> grouped = {};
           for (final l in ledgers) {
@@ -81,11 +83,13 @@ class SalesDateDetailScreen extends ConsumerWidget {
       body: FutureBuilder<List<Ledger>>(
         future: ref.read(ledgerServiceProvider).getLedgersForDate(date, 'sale'),
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done)
+          if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
+          }
           final ledgers = snapshot.data ?? [];
-          if (ledgers.isEmpty)
+          if (ledgers.isEmpty) {
             return const Center(child: Text('No sales for this date'));
+          }
           return ListView.builder(
             itemCount: ledgers.length,
             itemBuilder: (context, idx) {
