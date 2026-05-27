@@ -61,6 +61,8 @@ The app boots from `lib/main.dart` into a `MaterialApp` with `DashboardScreen` a
 Dashboard navigation currently exposes:
 
 - Billing (POS)
+- Purchases
+- Sales
 - Inventory
 - Retailers
 - Wholesalers
@@ -161,10 +163,11 @@ Role:
 - Manage purchase and sale ledger records.
 - Apply payments.
 - Expose migration verification data.
+- Surface date-wise party ledgers, bill breakup views, and payment history in the UI.
 
 Note:
 
-- Ledger screens exist in the codebase even if they are not currently a dashboard tile.
+- Ledger screens are now surfaced from the dashboard as Purchases and Sales tiles.
 
 ## 6. Data Model
 
@@ -286,6 +289,8 @@ On bill generation:
 - A sale ledger is created for the retailer.
 - Purchase ledgers are created for wholesalers involved in the bill.
 - Payment history can later reduce outstanding balances.
+- The ledger UI now exposes date grouping, party lists, bill breakup, and additive payment history.
+- Full-payment entries set remaining balance to zero and mark the ledger as fully paid.
 
 ## 9. Shared UI And App Conventions
 
@@ -319,11 +324,14 @@ Implemented:
 - Ledger creation and payment tracking.
 - Reports and backup-related UI.
 - Inventory UI cleanup away from Receive Stock.
+- Purchases and Sales dashboard navigation entries.
+- Date-wise purchase/sales ledger browsing, breakup views, and payment history UI.
+- Resetting SQLite autoincrement counters during full data wipe.
 
 Partially implemented:
 
 - Some legacy fallback code paths remain in the backend for migration compatibility.
-- Ledger screens exist but are not yet surfaced as a primary dashboard destination.
+- Some legacy compatibility and runtime cleanup work remains in unrelated areas.
 
 Still recommended:
 
@@ -348,6 +356,8 @@ Notes:
 - Run build_runner after schema or Drift table changes.
 - Use `flutter analyze` to catch compile and lint issues early.
 - Use `flutter run` for runtime verification on a device or emulator.
+- Current analyzer status: only unrelated legacy info warnings remain in `lib/services/pdf_service.dart`.
+- Current Windows run status: the app build is blocked by an MSB3073 install-step failure in the Windows toolchain.
 
 ## 12. Verification Checklist
 

@@ -221,7 +221,7 @@ Do not introduce raw duplicated Material-only flows if the shared helpers alread
 
 Based on the current code read during this conversation:
 
-Implemented or partially implemented:
+Implemented:
 
 - `ledger_service.dart` already has:
   - `getLedgersByTypeAndDate`
@@ -229,17 +229,18 @@ Implemented or partially implemented:
   - `getLedgerBreakup`
   - `getMigrationReport`
   - `applyPayment`
-- `purchases_screen.dart` and `sales_screen.dart` already exist, but they are shallow draft screens and do not fully match the requested flow.
-- `dashboard_screen.dart` still lacks explicit Purchases and Sales dashboard tiles.
+
+Also implemented in the latest state:
+
+- `clearAllData()` now resets SQLite autoincrement counters so invoices restart from `#1` after a full wipe.
+- `purchases_screen.dart` now provides the full date list -> party list -> breakup flow with payment history and payment entry UI.
+- `sales_screen.dart` now routes into the same ledger flow for retailer-ledger browsing.
+- `dashboard_screen.dart` now exposes explicit Purchases and Sales tiles.
+- Payment history is stored additively in the existing `payments` table and shown newest-first in the ledger detail view.
 
 Missing or incomplete:
 
-- Proper date grouping UI for purchases and sales.
-- Party list screens with the requested row fields.
-- Detailed breakup screens with bill/item/source information.
-- Payment history form and history display.
-- Dashboard navigation entries for Purchases and Sales.
-- Fuller party-level ledger detail UX.
+- Only minor UX polish and follow-up verification remain; the core purchase/sales cash-flow workflow is now present.
 
 ## 13. Files Most Likely To Change In The Next Step
 
@@ -250,6 +251,8 @@ The next implementation step should stay scoped to these files or near-neighbors
 - `lib/features/ledger/sales_screen.dart`
 - `lib/features/dashboard/dashboard_screen.dart`
 - possibly small shared UI helpers if needed
+
+Most likely follow-up work is now limited to polish, tests, and any runtime-only edge cases discovered during manual verification.
 
 Avoid touching unrelated backend areas unless a concrete compile/runtime issue forces it.
 
@@ -284,12 +287,17 @@ Once the missing ledger UI/workflow is implemented, validation should include:
   - remaining balance updates
   - breakup navigation
 
+Current validation state:
+
+- `flutter analyze` is clean for the touched ledger and database files; only unrelated legacy info warnings remain in `lib/services/pdf_service.dart`.
+- `flutter run -d windows` currently fails in the Windows toolchain with MSB3073 during the install step, which appears environmental rather than app-code related.
+
 ## 16. Conversation Outcome So Far
 
 The conversation has established the current scope:
 
 - Billing purchase-source selection has been fixed.
-- The next priority is purchase/sales cash-flow UI and payment history.
-- The task is implementation-focused, not architecture rework.
+- The purchase/sales cash-flow UI, payment history, and bill-breakup flow are now implemented.
+- The remaining work is verification and small polish rather than feature build-out.
 
 This document should be treated as the current working context for the ledger follow-up task.
