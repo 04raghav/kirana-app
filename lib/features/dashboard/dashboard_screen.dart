@@ -5,6 +5,8 @@ import 'package:kirana_app/features/ledger/sales_screen.dart';
 
 import '../../core/providers.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/kirana_card.dart';
+import '../../theme/app_colors.dart';
 import '../billing/billing_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../retailers/retailers_screen.dart';
@@ -22,7 +24,10 @@ class DashboardScreen extends ConsumerWidget {
         title: 'Kirana ERP Dashboard',
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_forever, color: Colors.white),
+            icon: Icon(
+              Icons.delete_forever,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
             tooltip: 'Clear All Data',
             onPressed: () {
               showCommonDialog(
@@ -40,7 +45,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.error,
                     ),
                     onPressed: () async {
                       Navigator.of(context).pop(); // Close dialog
@@ -61,9 +66,11 @@ class DashboardScreen extends ConsumerWidget {
                         );
                       }
                     },
-                    child: const Text(
+                    child: Text(
                       "Confirm",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -79,80 +86,80 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           children: [
-            _DashboardCard(
+            KiranaCard(
               title: 'Billing (POS)',
               icon: Icons.receipt_long,
-              color: Colors.blue,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const BillingScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: 'Inventory',
               icon: Icons.inventory,
-              color: Colors.orange,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const InventoryScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: 'Retailers',
               icon: Icons.store,
-              color: Colors.green,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const RetailersScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: 'Wholesalers',
               icon: Icons.local_shipping,
-              color: Colors.purple,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const WholesalersScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: 'Analytics',
               icon: Icons.analytics,
-              color: Colors.red,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: 'Reports & Backups',
               icon: Icons.backup,
-              color: Colors.teal,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ReportsScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: "Purchases",
-              icon: Icons.blinds_closed_outlined,
-              color: Colors.indigo,
+              icon: Icons.receipt_long,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PurchasesScreen()),
                 );
               },
             ),
-            _DashboardCard(
+            KiranaCard(
               title: "Sales",
-              icon: Icons.blinds_closed_outlined,
-              color: Colors.indigo,
+              icon: Icons.point_of_sale,
+              color: AppColors.deepAmber,
               onTap: () {
                 Navigator.of(
                   context,
@@ -160,57 +167,6 @@ class DashboardScreen extends ConsumerWidget {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _DashboardCard({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [color.withValues(alpha: 0.7), color],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: Colors.white),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

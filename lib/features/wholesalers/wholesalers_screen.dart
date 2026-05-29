@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../widgets/common_widgets.dart';
 import '../../theme/app_colors.dart';
+import 'package:data_table_2/data_table_2.dart';
 import 'wholesalers_service.dart';
 
 class WholesalersScreen extends ConsumerWidget {
@@ -23,43 +24,55 @@ class WholesalersScreen extends ConsumerWidget {
               child: Text("No wholesalers found. Add one below."),
             );
           }
-          return ListView.builder(
-            itemCount: wholesalers.length,
-            itemBuilder: (context, index) {
-              final w = wholesalers[index];
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.local_shipping)),
-                title: Text(w.name),
-                subtitle: Text(
-                  '${w.phone ?? "No phone"} | ${w.address ?? "No address"}',
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: AppColors.error),
-                  onPressed: () async {
-                    try {
-                      await ref
-                          .read(wholesalersServiceProvider)
-                          .deleteWholesaler(w.id);
-                      ref.invalidate(wholesalersListProvider);
-                      if (context.mounted) {
-                        showCommonSnackbar(
-                          context,
-                          'Wholesaler deleted successfully.',
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        showCommonSnackbar(
-                          context,
-                          'Cannot delete wholesaler related to existing inventory or transactions.',
-                          isError: true,
-                        );
-                      }
-                    }
-                  },
-                ),
-              );
-            },
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: DataTable2(
+              columnSpacing: 12,
+              horizontalMargin: 12,
+              minWidth: 600,
+              columns: const [
+                DataColumn2(label: Text('Name')),
+                DataColumn2(label: Text('Phone')),
+                DataColumn2(label: Text('Address')),
+                DataColumn2(label: Text('')),
+              ],
+              rows: wholesalers.map((w) {
+                return DataRow(
+                  cells: [
+                    DataCell(Text(w.name)),
+                    DataCell(Text(w.phone ?? '-')),
+                    DataCell(Text(w.address ?? '-')),
+                    DataCell(
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: AppColors.error),
+                        onPressed: () async {
+                          try {
+                            await ref
+                                .read(wholesalersServiceProvider)
+                                .deleteWholesaler(w.id);
+                            ref.invalidate(wholesalersListProvider);
+                            if (context.mounted) {
+                              showCommonSnackbar(
+                                context,
+                                'Wholesaler deleted successfully.',
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              showCommonSnackbar(
+                                context,
+                                'Cannot delete wholesaler related to existing inventory or transactions.',
+                                isError: true,
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
           );
         },
       ),

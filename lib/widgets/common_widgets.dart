@@ -19,17 +19,20 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       title: Text(
         title,
-        style: AppTextStyles.heading2.copyWith(color: Colors.white),
+        style: AppTextStyles.pageHeading.copyWith(
+          color: Theme.of(context).colorScheme.onPrimary,
+        ),
       ),
       centerTitle: true,
-      backgroundColor: AppColors.primary,
+      backgroundColor: const Color.fromARGB(255, 132, 95, 69),
+      elevation: 2,
       actions: actions,
       leading: leading,
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(64);
 }
 
 void showCommonSnackbar(
@@ -39,7 +42,10 @@ void showCommonSnackbar(
 }) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message, style: const TextStyle(color: Colors.white)),
+      content: Text(
+        message,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+      ),
       backgroundColor: isError ? AppColors.error : AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -56,7 +62,7 @@ void showCommonDialog({
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(title, style: AppTextStyles.heading2),
+      title: Text(title, style: AppTextStyles.pageHeading),
       content: content,
       actions:
           actions ??

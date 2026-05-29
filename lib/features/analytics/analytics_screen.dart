@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:kirana_app/theme/app_colors.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import '../../theme/app_text_styles.dart';
 import '../../widgets/common_widgets.dart';
 import 'analytics_service.dart';
 
@@ -20,19 +22,181 @@ class AnalyticsScreen extends ConsumerWidget {
           final topRetailers = data.retailerSales;
           final topWholesalers = data.wholesalerPurchases;
 
+          final monthlySales = data.monthlySales;
+          final monthlyPurchases = data.monthlyPurchases;
+
+          final totalSales = topRetailers.values.fold(0.0, (a, b) => a + b);
+          final totalPurchases = topWholesalers.values.fold(
+            0.0,
+            (a, b) => a + b,
+          );
+          final outstandingReceivables = 0.0;
+          final outstandingPayables = 0.0;
+
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              _buildChartSection(
-                title: 'Retailer Sales',
-                dataMap: topRetailers,
-                isEmpty: topRetailers.values.every((v) => v == 0),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _KpiCard(title: 'Total Sales', value: totalSales),
+                  _KpiCard(title: 'Total Purchases', value: totalPurchases),
+                  _KpiCard(
+                    title: 'Outstanding Receivables',
+                    value: outstandingReceivables,
+                  ),
+                  _KpiCard(
+                    title: 'Outstanding Payables',
+                    value: outstandingPayables,
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-              _buildChartSection(
-                title: 'Wholesaler Purchases',
-                dataMap: topWholesalers,
-                isEmpty: topWholesalers.values.every((v) => v == 0),
+              const SizedBox(height: 20),
+              // Doughnut charts
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 900;
+                  final chartColumn = [
+                    Expanded(
+                      child: _ChartPanel(
+                        title: 'Retailer Sales',
+                        child: SfCircularChart(
+                          legend: Legend(
+                            isVisible: true,
+                            overflowMode: LegendItemOverflowMode.wrap,
+                            textStyle: AppTextStyles.caption.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                          palette: AppColors.chartPalette,
+                          series: <CircularSeries>[
+                            DoughnutSeries<_ChartData, String>(
+                              dataSource: topRetailers.entries
+                                  .map((e) => _ChartData(e.key, e.value))
+                                  .toList(),
+                              xValueMapper: (d, _) => d.x,
+                              yValueMapper: (d, _) => d.y,
+                              dataLabelSettings: const DataLabelSettings(
+                                isVisible: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12, height: 12),
+                    Expanded(
+                      child: _ChartPanel(
+                        title: 'Wholesaler Purchases',
+                        child: SfCircularChart(
+                          legend: Legend(
+                            isVisible: true,
+                            overflowMode: LegendItemOverflowMode.wrap,
+                            textStyle: AppTextStyles.caption.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                          palette: AppColors.chartPalette,
+                          series: <CircularSeries>[
+                            DoughnutSeries<_ChartData, String>(
+                              dataSource: topWholesalers.entries
+                                  .map((e) => _ChartData(e.key, e.value))
+                                  .toList(),
+                              xValueMapper: (d, _) => d.x,
+                              yValueMapper: (d, _) => d.y,
+                              dataLabelSettings: const DataLabelSettings(
+                                isVisible: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ];
+
+                  if (isWide) {
+                    return Row(children: chartColumn);
+                  }
+                  return Column(
+                    children: [
+                      chartColumn[0],
+                      const SizedBox(height: 12),
+                      chartColumn[2],
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              // Bar charts for monthly
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Monthly Sales',
+                        style: AppTextStyles.sectionHeading,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 240,
+                        child: SfCartesianChart(
+                          palette: AppColors.chartPalette,
+                          primaryXAxis: CategoryAxis(),
+                          tooltipBehavior: TooltipBehavior(enable: true),
+                          series: <CartesianSeries<_ChartData, String>>[
+                            ColumnSeries<_ChartData, String>(
+                              dataSource: monthlySales.entries
+                                  .map((e) => _ChartData(e.key, e.value))
+                                  .toList(),
+                              xValueMapper: (d, _) => d.x,
+                              yValueMapper: (d, _) => d.y,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Monthly Purchases',
+                        style: AppTextStyles.sectionHeading,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 240,
+                        child: SfCartesianChart(
+                          palette: AppColors.chartPalette,
+                          primaryXAxis: CategoryAxis(),
+                          tooltipBehavior: TooltipBehavior(enable: true),
+                          series: <CartesianSeries<_ChartData, String>>[
+                            ColumnSeries<_ChartData, String>(
+                              dataSource: monthlyPurchases.entries
+                                  .map((e) => _ChartData(e.key, e.value))
+                                  .toList(),
+                              xValueMapper: (d, _) => d.x,
+                              yValueMapper: (d, _) => d.y,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           );
@@ -40,103 +204,60 @@ class AnalyticsScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildChartSection({
-    required String title,
-    required Map<String, double> dataMap,
-    required bool isEmpty,
-  }) {
-    if (isEmpty) {
-      return Card(
+class _ChartData {
+  final String x;
+  final double y;
+  _ChartData(this.x, this.y);
+}
+
+class _KpiCard extends StatelessWidget {
+  final String title;
+  final double value;
+
+  const _KpiCard({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 220),
+      child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(title, style: AppTextStyles.sectionHeading),
+              const SizedBox(height: 8),
               Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                '₹${value.toStringAsFixed(2)}',
+                style: AppTextStyles.display.copyWith(fontSize: 20),
               ),
-              const SizedBox(height: 16),
-              const Text("No data available yet."),
             ],
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
-    final total = dataMap.values.fold(0.0, (sum, val) => sum + val);
+class _ChartPanel extends StatelessWidget {
+  final String title;
+  final Widget child;
 
-    final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.cyan,
-    ];
+  const _ChartPanel({required this.title, required this.child});
 
-    int colorIndex = 0;
-    final sections = dataMap.entries.map((entry) {
-      final percentage = (entry.value / total) * 100;
-      final section = PieChartSectionData(
-        color: colors[colorIndex % colors.length],
-        value: entry.value,
-        title: '${percentage.toStringAsFixed(1)}%',
-        radius: 60,
-        titleStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-      colorIndex++;
-      return section;
-    }).toList();
-
+  @override
+  Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: sections,
-                  centerSpaceRadius: 40,
-                  sectionsSpace: 2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: dataMap.entries.map((entry) {
-                final idx = dataMap.keys.toList().indexOf(entry.key);
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      color: colors[idx % colors.length],
-                    ),
-                    const SizedBox(width: 4),
-                    Text('${entry.key} (₹${entry.value.toStringAsFixed(2)})'),
-                  ],
-                );
-              }).toList(),
-            ),
+            Text(title, style: AppTextStyles.sectionHeading),
+            const SizedBox(height: 8),
+            SizedBox(height: 240, child: child),
           ],
         ),
       ),

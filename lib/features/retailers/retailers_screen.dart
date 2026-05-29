@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kirana_app/theme/app_colors.dart';
 import '../../core/providers.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:data_table_2/data_table_2.dart';
 // removed unused import
 import 'retailers_service.dart';
 
@@ -23,27 +25,39 @@ class RetailersScreen extends ConsumerWidget {
               child: Text("No retailers found. Add one below."),
             );
           }
-          return ListView.builder(
-            itemCount: retailers.length,
-            itemBuilder: (context, index) {
-              final r = retailers[index];
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.store)),
-                title: Text(r.name),
-                subtitle: Text(
-                  '${r.phone ?? "No phone"} | ${r.address ?? "No address"}',
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () async {
-                    await ref
-                        .read(retailersServiceProvider)
-                        .deleteRetailer(r.id);
-                    ref.invalidate(retailersListProvider);
-                  },
-                ),
-              );
-            },
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: DataTable2(
+              columnSpacing: 12,
+              horizontalMargin: 12,
+              minWidth: 600,
+              columns: const [
+                DataColumn2(label: Text('Name')),
+                DataColumn2(label: Text('Phone')),
+                DataColumn2(label: Text('Address')),
+                DataColumn2(label: Text('')),
+              ],
+              rows: retailers.map((r) {
+                return DataRow(
+                  cells: [
+                    DataCell(Text(r.name)),
+                    DataCell(Text(r.phone ?? '-')),
+                    DataCell(Text(r.address ?? '-')),
+                    DataCell(
+                      IconButton(
+                        icon: Icon(Icons.delete, color: AppColors.error),
+                        onPressed: () async {
+                          await ref
+                              .read(retailersServiceProvider)
+                              .deleteRetailer(r.id);
+                          ref.invalidate(retailersListProvider);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
           );
         },
       ),

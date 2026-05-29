@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kirana_app/theme/app_colors.dart';
+import 'package:kirana_app/theme/app_text_styles.dart';
 
 import '../../core/providers.dart';
 import '../../database/database.dart';
@@ -38,9 +40,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    title: const Text(
+                    title: Text(
                       'Select Items to Bill',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: AppTextStyles.cardHeading,
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.refresh),
@@ -78,12 +80,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                 _showAddItemDialog(context, item);
                               },
                               child: Card(
-                                color: Colors.blue.shade50,
+                                color: AppColors.cream,
                                 child: Center(
                                   child: Text(
                                     item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                    style: AppTextStyles.body.copyWith(
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
@@ -106,11 +108,8 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               margin: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  const ListTile(
-                    title: Text(
-                      'Cart',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                  ListTile(
+                    title: Text('Cart', style: AppTextStyles.cardHeading),
                   ),
                   const Divider(),
                   retailersAsync.when(
@@ -119,7 +118,10 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     error: (err, stack) => Center(child: Text('Error: $err')),
                     data: (retailers) {
                       return ListTile(
-                        title: const Text("Select Retailer"),
+                        title: Text(
+                          "Select Retailer",
+                          style: AppTextStyles.body,
+                        ),
                         subtitle: DropdownButton<int>(
                           isExpanded: true,
                           value: selectedRetailer,
@@ -127,7 +129,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                           items: retailers.map((r) {
                             return DropdownMenuItem(
                               value: r.id,
-                              child: Text(r.name),
+                              child: Text(
+                                r.name,
+                                style: AppTextStyles.body.copyWith(
+                                  fontSize: 14,
+                                ),
+                              ),
                             );
                           }).toList(),
                           onChanged: (val) {
@@ -142,7 +149,12 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                   const Divider(),
                   Expanded(
                     child: cartItems.isEmpty
-                        ? const Center(child: Text("Cart is empty"))
+                        ? Center(
+                            child: Text(
+                              "Cart is empty",
+                              style: AppTextStyles.body,
+                            ),
+                          )
                         : ListView.builder(
                             itemCount: cartItems.length,
                             itemBuilder: (context, index) {
@@ -153,9 +165,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                   'Qty: ${cItem.quantity} | Total: ₹${cItem.finalTotal.toStringAsFixed(2)}',
                                 ),
                                 trailing: IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.delete,
-                                    color: Colors.red,
+                                    color: AppColors.error,
                                   ),
                                   onPressed: () {
                                     ref
@@ -200,10 +212,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                                     );
                                   }
                                 },
-                          child: const Text(
-                            'Generate Bill',
-                            style: TextStyle(fontSize: 18),
-                          ),
+                          child: Text('Generate Bill'),
                         ),
                       ],
                     ),
@@ -289,6 +298,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                       value: s.id,
                       child: Text(
                         '${wholesalerName.name} | ₹${s.purchasePrice} | GST ${s.gstRate}% | $qtyLabel',
+                        style: AppTextStyles.body.copyWith(fontSize: 14),
                       ),
                     );
                   }).toList(),
@@ -316,21 +326,28 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 8),
               TextField(
                 controller: purchasePriceController,
                 decoration: const InputDecoration(labelText: 'Purchase Price'),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 8),
+
               TextField(
                 controller: gstController,
                 decoration: const InputDecoration(labelText: 'GST %'),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 8),
+
               TextField(
                 controller: bardanaController,
                 decoration: const InputDecoration(labelText: 'Bardana'),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 8),
+
               // show selected source meta
               if (selectedSourceId != null)
                 Padding(
@@ -352,20 +369,92 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Source: ${wholesalerName.name}'),
-                          Text('Purchase price: ₹${s.purchasePrice}'),
-                          Text('GST: ${s.gstRate}%'),
-                          Text('Bardana: ${s.bardana}'),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Source: ',
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: wholesalerName.name,
+                                  style: AppTextStyles.body.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Purchase price: ',
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: '₹${s.purchasePrice}',
+                                  style: AppTextStyles.body.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'GST: ',
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: '${s.gstRate}%',
+                                  style: AppTextStyles.body.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Bardana: ',
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: '${s.bardana}',
+                                  style: AppTextStyles.body.copyWith(
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       );
                     },
                   ),
                 ),
+              const SizedBox(height: 8),
+
               TextField(
                 controller: qtyController,
                 decoration: const InputDecoration(labelText: 'Quantity'),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 8),
+
               TextField(
                 controller: sellingPriceController,
                 decoration: const InputDecoration(

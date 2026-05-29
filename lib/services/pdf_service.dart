@@ -150,9 +150,7 @@ class PdfService {
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text(
-                            "${item.sellingPrice.toStringAsFixed(2)}",
-                          ),
+                          child: pw.Text(item.sellingPrice.toStringAsFixed(2)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
@@ -163,14 +161,13 @@ class PdfService {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
                           child: pw.Text(
-                            "${(item.item.defaultBardana * item.quantity).toStringAsFixed(2)}",
+                            (item.item.defaultBardana * item.quantity)
+                                .toStringAsFixed(2),
                           ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(5),
-                          child: pw.Text(
-                            "${item.finalTotal.toStringAsFixed(2)}",
-                          ),
+                          child: pw.Text(item.finalTotal.toStringAsFixed(2)),
                         ),
                       ],
                     );

@@ -14,10 +14,14 @@ final analyticsDataProvider = FutureProvider<AnalyticsData>((ref) async {
 class AnalyticsData {
   final Map<String, double> retailerSales;
   final Map<String, double> wholesalerPurchases;
+  final Map<String, double> monthlySales;
+  final Map<String, double> monthlyPurchases;
 
   AnalyticsData({
     required this.retailerSales,
     required this.wholesalerPurchases,
+    required this.monthlySales,
+    required this.monthlyPurchases,
   });
 }
 
@@ -86,9 +90,30 @@ class AnalyticsService {
           (wholesalerPurchases[whName] ?? 0.0) + totalCost;
     }
 
+    // Monthly sales aggregation (by YYYY-MM)
+    final monthlySales = <String, double>{};
+    final bills = await _db.select(_db.retailerBills).get();
+    for (final b in bills) {
+      final key = '${b.date.year}-${b.date.month.toString().padLeft(2, '0')}';
+      monthlySales[key] = (monthlySales[key] ?? 0.0) + b.totalAmount;
+    }
+
+    // Monthly purchases aggregation from wholesalerInventory.receivedAt
+    final monthlyPurchases = <String, double>{};
+    final inventories = await _db.select(_db.wholesalerInventory).get();
+    for (final inv in inventories) {
+      final key =
+          '${inv.receivedAt.year}-${inv.receivedAt.month.toString().padLeft(2, '0')}';
+      final initialQuantity = inv.quantityToSell; // approximation
+      final totalCost = (initialQuantity * inv.purchasePrice) + inv.bardana;
+      monthlyPurchases[key] = (monthlyPurchases[key] ?? 0.0) + totalCost;
+    }
+
     return AnalyticsData(
       retailerSales: retailerSales,
       wholesalerPurchases: wholesalerPurchases,
+      monthlySales: monthlySales,
+      monthlyPurchases: monthlyPurchases,
     );
   }
 }

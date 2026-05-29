@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/ledger/ledger_service.dart';
-import 'purchases_screen.dart';
+import 'ledger_detail_screen.dart';
 import '../../database/database.dart';
+import '../../widgets/common_widgets.dart';
+import 'package:data_table_2/data_table_2.dart';
+import '../../core/providers.dart';
 
 class SalesScreen extends ConsumerStatefulWidget {
   const SalesScreen({super.key});
@@ -15,7 +18,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sales')),
+      appBar: CommonAppBar(title: 'Sales'),
       body: FutureBuilder<List<Ledger>>(
         future: ref.read(ledgerServiceProvider).getLedgersByTypeAndDate('sale'),
         builder: (context, snapshot) {
@@ -77,8 +80,8 @@ class SalesDateDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Sales ${date.day}-${date.month}-${date.year}'),
+      appBar: CommonAppBar(
+        title: 'Sales ${date.day}-${date.month}-${date.year}',
       ),
       body: FutureBuilder<List<Ledger>>(
         future: ref.read(ledgerServiceProvider).getLedgersForDate(date, 'sale'),
@@ -90,23 +93,63 @@ class SalesDateDetailScreen extends ConsumerWidget {
           if (ledgers.isEmpty) {
             return const Center(child: Text('No sales for this date'));
           }
-          return ListView.builder(
-            itemCount: ledgers.length,
-            itemBuilder: (context, idx) {
-              final l = ledgers[idx];
-              return ListTile(
-                title: Text('Retailer ID: ${l.partyId}'),
-                subtitle: Text(
-                  'Total: ₹${l.totalAmount.toStringAsFixed(2)} | Remaining: ₹${l.remainingAmount.toStringAsFixed(2)}',
+          final retailersAsync = ref.watch(retailersListProvider);
+          return retailersAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+            data: (retailers) {
+              return Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: DataTable2(
+                  columnSpacing: 12,
+                  horizontalMargin: 12,
+                  minWidth: 600,
+                  columns: const [
+                    DataColumn2(label: Text('Retailer')),
+                    DataColumn2(label: Text('Total')),
+                    DataColumn2(label: Text('Paid')),
+                    DataColumn2(label: Text('Remaining')),
+                    DataColumn2(label: Text('Interest')),
+                    DataColumn2(label: Text('Status')),
+                    DataColumn2(label: Text('')),
+                  ],
+                  rows: ledgers.map((l) {
+                    final retailer = retailers.firstWhere(
+                      (r) => r.id == l.partyId,
+                      orElse: () => Retailer(
+                        id: l.partyId,
+                        name: 'Retailer ${l.partyId}',
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      ),
+                    );
+                    return DataRow(
+                      cells: [
+                        DataCell(Text(retailer.name)),
+                        DataCell(Text('₹${l.totalAmount.toStringAsFixed(2)}')),
+                        DataCell(Text('₹${l.amountPaid.toStringAsFixed(2)}')),
+                        DataCell(
+                          Text('₹${l.remainingAmount.toStringAsFixed(2)}'),
+                        ),
+                        DataCell(Text('₹${l.interest.toStringAsFixed(2)}')),
+                        DataCell(Text(l.isFullyPaid ? 'Fully Paid' : 'Open')),
+                        DataCell(
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => LedgerDetailScreen(ledger: l),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
                 ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LedgerDetailScreen(ledger: l),
-                    ),
-                  );
-                },
               );
             },
           );

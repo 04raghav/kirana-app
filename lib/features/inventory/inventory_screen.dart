@@ -1,5 +1,7 @@
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kirana_app/theme/app_colors.dart';
 
 import '../../core/providers.dart';
 import '../../database/database.dart';
@@ -24,7 +26,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         title: 'Inventory',
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(
+              Icons.refresh,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
             onPressed: () => ref.invalidate(itemsListProvider),
           ),
         ],
@@ -39,24 +44,37 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             );
           }
 
-          return ListView.separated(
+          return Padding(
             padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Card(
-                child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.inventory_2)),
-                  title: Text(item.name),
-                  subtitle: Text(
-                    'Tap to manage purchase sources | GST ${item.defaultGst}% | Bardana ${item.defaultBardana}',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showItemSourcesDialog(context, item),
-                ),
-              );
-            },
+            child: DataTable2(
+              columnSpacing: 12,
+              horizontalMargin: 12,
+              minWidth: 700,
+              columns: const [
+                DataColumn2(label: Text('Item')),
+                DataColumn2(label: Text('GST')),
+                DataColumn2(label: Text('Bardana')),
+                DataColumn2(label: Text('')),
+              ],
+              rows: items
+                  .map(
+                    (item) => DataRow(
+                      cells: [
+                        DataCell(Text(item.name)),
+                        DataCell(Text('${item.defaultGst}%')),
+                        DataCell(Text('${item.defaultBardana}')),
+                        DataCell(
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right),
+                            onPressed: () =>
+                                _showItemSourcesDialog(context, item),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
           );
         },
       ),
@@ -160,7 +178,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             ],
           ),
           content: SizedBox(
-            width: 680,
+            width: 760,
             child: Consumer(
               builder: (context, ref, _) {
                 final sourcesAsync = ref.watch(
@@ -193,90 +211,121 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
                         return SizedBox(
                           height: 320,
-                          child: ListView.separated(
-                            itemCount: sources.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 16),
-                            itemBuilder: (context, index) {
-                              final source = sources[index];
+                          child: DataTable2(
+                            columnSpacing: 12,
+                            horizontalMargin: 12,
+                            minWidth: 700,
+                            columns: const [
+                              DataColumn2(label: Text('Wholesaler')),
+                              DataColumn2(label: Text('Price')),
+                              DataColumn2(label: Text('GST')),
+                              DataColumn2(label: Text('Bardana')),
+                              DataColumn2(label: Text('Qty')),
+                              DataColumn2(label: Text('Actions')),
+                            ],
+                            rows: sources.map((source) {
                               final wholesalerName = _wholesalerName(
                                 source.wholesalerId,
                                 wholesalers,
                               );
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(wholesalerName),
-                                subtitle: Text(
-                                  'Price ₹${source.purchasePrice} | GST ${source.gstRate}% | Bardana ${source.bardana} | Qty ${source.isQuantityNa ? 'N/A' : (source.quantity ?? 0)}',
-                                ),
-                                trailing: Wrap(
-                                  spacing: 4,
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'Edit source',
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () async {
-                                        await _showSourceEditorDialog(
-                                          dialogContext,
-                                          item,
-                                          wholesalers,
-                                          existingSource: source,
-                                        );
-                                      },
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(wholesalerName)),
+                                  DataCell(Text('₹${source.purchasePrice}')),
+                                  DataCell(Text('${source.gstRate}%')),
+                                  DataCell(Text('${source.bardana}')),
+                                  DataCell(
+                                    Text(
+                                      source.isQuantityNa
+                                          ? 'N/A'
+                                          : (source.quantity?.toString() ??
+                                                '0'),
                                     ),
-                                    IconButton(
-                                      tooltip: 'Delete source',
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
-                                      ),
-                                      onPressed: () async {
-                                        final confirmed = await showDialog<bool>(
-                                          context: dialogContext,
-                                          builder: (ctx) => AlertDialog(
-                                            title: const Text('Delete source?'),
-                                            content: Text(
-                                              'Remove the purchase source for $wholesalerName?',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, false),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(ctx, true),
-                                                child: const Text('Delete'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-
-                                        if (confirmed == true) {
-                                          await ref
-                                              .read(
-                                                purchaseSourcesServiceProvider,
-                                              )
-                                              .deleteSource(source.id);
-                                          ref.invalidate(
-                                            purchaseSourcesForItemProvider(
-                                              item.id,
-                                            ),
-                                          );
-                                          if (dialogContext.mounted) {
-                                            showCommonSnackbar(
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Edit source',
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: () async {
+                                            await _showSourceEditorDialog(
                                               dialogContext,
-                                              'Purchase source deleted',
+                                              item,
+                                              wholesalers,
+                                              existingSource: source,
                                             );
-                                          }
-                                        }
-                                      },
+                                          },
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Delete source',
+                                          icon: Icon(
+                                            Icons.delete,
+                                            color: AppColors.error,
+                                          ),
+                                          onPressed: () async {
+                                            final confirmed =
+                                                await showDialog<bool>(
+                                                  context: dialogContext,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: const Text(
+                                                      'Delete source?',
+                                                    ),
+                                                    content: Text(
+                                                      'Remove the purchase source for $wholesalerName?',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              ctx,
+                                                              false,
+                                                            ),
+                                                        child: const Text(
+                                                          'Cancel',
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              ctx,
+                                                              true,
+                                                            ),
+                                                        child: const Text(
+                                                          'Delete',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+
+                                            if (confirmed == true) {
+                                              await ref
+                                                  .read(
+                                                    purchaseSourcesServiceProvider,
+                                                  )
+                                                  .deleteSource(source.id);
+                                              ref.invalidate(
+                                                purchaseSourcesForItemProvider(
+                                                  item.id,
+                                                ),
+                                              );
+                                              if (dialogContext.mounted) {
+                                                showCommonSnackbar(
+                                                  dialogContext,
+                                                  'Purchase source deleted',
+                                                );
+                                              }
+                                            }
+                                          },
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               );
-                            },
+                            }).toList(),
                           ),
                         );
                       },
